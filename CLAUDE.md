@@ -191,7 +191,7 @@ declined pulling the title screen forward.
 Every step ends with this checklist:
 1. `dart format lib test test_preview`
 2. `flutter analyze`
-3. `flutter test test --timeout 60s`. The whole suite has been green since step 19 (156 tests at step 22c).
+3. `flutter test test --timeout 60s`. The whole suite has been green since step 19 (160 tests at step 22e, 172 at step 22g).
 4. **No preview renders or mock-ups any more (user's request, step 19).** Check visible work by
    running the app with `flutter run -d macos`, which always uses the real camera. The existing
    `test_preview/` renders are kept but no longer extended.
@@ -209,8 +209,10 @@ Every step ends with this checklist:
 - Real cameras:
   - `camera` plugin for Windows + iPad.
   - `camera_macos` for macOS.
-- Printing goes through the `printing` package (AirPrint on iPad/macOS, spooler on Windows),
-  behind a `PrinterService`. `MockPrinterService` is the default until the SELPHY is verified.
+- **Printing is NOT done by this app** (user's decision, step 22e). The user's separate printer
+  code (python_parallel_print behind a small print server) owns the SELPHY queue, the
+  round-robin and the rotation. The app only **POSTs the sheet over HTTP**
+  (`NetworkPrinterService`), or uses the mock. Don't re-add printer or PDF code.
 - Sessions are stored under `path_provider`'s documents dir, not the working dir, because iPad
   has no working dir.
 
@@ -371,7 +373,7 @@ Every step ends with this checklist:
   `assets/templates/` and were moved).
   - They include **opaque white corners** from the photo slots. The user was told; this is the
     designer's call.
-- **Vertical swatches are still placeholders.** Each is a 200×200 crop at x 200–400,
+- **Vertical swatches: the user approved the crops as final (22e).** Originally placeholders. Each is a 200×200 crop at x 200–400,
   y 1595–1795 of `photo_frame_vertical_0N.png` (the starburst/snowflake corner below the last
   photo slot), scaled to 120×120. The designer can overwrite them with the same names.
 - Cropping the horizontal frames at their centre was tried and rejected: the crop catches the
@@ -457,9 +459,9 @@ Every step ends with this checklist:
 - `SessionService.inDocuments()` puts sessions in
   `<app documents>/photobooth_sessions/session_YYYYmmdd_HHMMSS/`. The constructor also takes
   `root:` and `clock:` for tests.
-- **Where photos land** (bundle id `com.occ.photobooth` since step 22b):
+- **Where photos land** (bundle id `com.example.flutterPhotobooth`):
   - macOS (sandboxed):
-    `~/Library/Containers/com.occ.photobooth/Data/Documents/photobooth_sessions/`
+    `~/Library/Containers/com.example.flutterPhotobooth/Data/Documents/photobooth_sessions/`
   - Windows: `%USERPROFILE%\Documents\photobooth_sessions\`
   - iPad: the app's Documents folder. To show it in the Files app, set
     `UIFileSharingEnabled` / `LSSupportsOpeningDocumentsInPlace` later.
@@ -676,7 +678,7 @@ Every step ends with this checklist:
 - Tests: `test/services/macos_camera_service_test.dart` (8) with a fake backend. The app builds
   under SPM, but **the real Mac camera hasn't run yet**; that needs a screen (step 19+).
 
-### PrinterService (step 17, `lib/services/printer_service.dart`)
+### PrinterService (step 17) — **SUPERSEDED by step 22e; this code was removed**
 - Dependencies added: `printing` (^5.15.1, the first version with SPM, needs Flutter ≥3.41) and
   `pdf` (^3.13).
 - **Getting here required the Flutter 3.35 → 3.50 upgrade** (see Build environment).
@@ -860,6 +862,8 @@ Every step ends with this checklist:
   - Buttons: Back to Selection | Print Photo | Start Over (regular).
 - Print → `printSheet(sheet, prints)` → a "Sent to print" dialog with OK (gold-bordered
   `Dialog`). **Every press prints again**, as in Python.
+  - **Step 22g:** this popup is now only the fallback when there's nothing to share. Otherwise
+    Print hands over to the share screen via `onPrinted` (see step 22g).
 - **Fixes over Python:**
   - The count is **2 for every guest** (screen state; Python kept the last count).
   - **Print is disabled while sending** ("Printing…"), so a double tap doesn't double-print.
@@ -908,39 +912,20 @@ Every step ends with this checklist:
   - It's **ad-hoc signed (no Team ID)**, so other Macs need a one-time Gatekeeper override
     ("Open Anyway" or `xattr -dr com.apple.quarantine`). Notarization needs a paid account.
   - Zip it with `ditto -c -k --sequesterRsrc --keepParent …` (keeps the signature), giving
-    `build/dist/OCC-Photobooth-macOS.zip` (19 MB).
+    `build/dist/Flutter-Photobooth-macOS.zip` (19 MB).
 - **Windows deployment needs the VC++ Redistributable (x64)** on the kiosk, plus the whole
   `Release\` folder.
 - The README "Event devices" section has the step-by-step deployment per device.
-- The app was renamed right after this (22b, below).
 
-### App name "OCC Photobooth" (step 22b, user's choice)
-- **Display name "OCC Photobooth"; bundle/app id `com.occ.photobooth`** (chosen by Claude, since
-  any unique reverse-DNS id works). The Dart package name stays `flutter_photobooth` (internal;
-  renaming would touch every import).
-- **macOS:** `macos/Runner/Configs/AppInfo.xcconfig` has `PRODUCT_NAME = OCC Photobooth` (so
-  the build is **`OCC Photobooth.app`**, the executable is `OCC Photobooth`), the bundle id, and
-  copyright "OCC". RunnerTests ids are in `project.pbxproj`. The space in the name works with
-  `flutter build`/`run`; **quote paths**.
-- **iOS:** `Info.plist` has `CFBundleDisplayName` / `CFBundleName` = "OCC Photobooth";
-  `project.pbxproj` has the bundle ids.
-- **Windows:** `BINARY_NAME "occ_photobooth"` (so the exe is **`occ_photobooth.exe`**, no
-  space), the window title "OCC Photobooth" in `runner/main.cpp`, and `Runner.rc` version info
-  (company "OCC", product "OCC Photobooth").
-- `MaterialApp.title` = 'OCC Photobooth'. Android, Linux and web identifiers were left alone
-  (not targets).
-- **Consequence:** the macOS container moved, so photos now land in
-  `~/Library/Containers/com.occ.photobooth/...`. Test sessions from before the rename stay in
-  `~/Library/Containers/com.example.flutterPhotobooth/...`.
-- Verified: the release build is `OCC Photobooth.app` (`com.occ.photobooth`, universal); the
-  debug build works; 150 tests pass. Distributable: `build/dist/OCC-Photobooth-macOS.zip`.
+### App name (user's decision)
+- The app name and identifiers are decided: "Flutter Photobooth", `flutter_photobooth`,
+  `com.example.flutterPhotobooth`.
 
 ### GifService (step 22c, user-requested; NEW, py-photobooth had no GIF)
 - `lib/services/gif_service.dart`: `const GifService().create(photoPaths, options:)` returns GIF
   bytes. `SessionService.saveGif(bytes)` writes `animation_YYYYmmdd_HHMMSS.gif` (never
   overwrites). `listPhotos()` ignores `.gif`.
-- **Not wired into the UI yet.** The user asked for a separate service; how guests get the GIF
-  (shown on screen, saved only, shared) is still to decide.
+- **Wired into the guest flow in 22d** (below).
 - `GifOptions`:
   - `width` 640; height follows the first photo's aspect.
   - `frameDelay` 500 ms, stored in 1/100 s and rounded.
@@ -963,6 +948,128 @@ Every step ends with this checklist:
 - Tests: `test/services/gif_service_test.dart` (6): size/order/timing/loop, boomerang order,
   options (width, speed, play once), mixed photo shapes, empty list, `saveGif` naming and
   listing.
+
+### GIF in the guest flow (step 22d, user's decisions)
+- **All 4 captured photos** (not the selection), made **in the background as soon as the camera
+  finishes**, so it's ready by the print screen (~1.7 s while the guest picks photos).
+- App shell (`lib/app.dart`):
+  - `_toSelection` starts `_gif = makeAndSaveGif(photos:, session: session.current, gifs:,
+    sessions:)`. `_toTitle` clears it.
+  - Back to Selection and then Next **reuse the same future**; there's no re-encode.
+  - `PhotoboothApp(gifs: const GifService())` is injectable.
+- **`makeAndSaveGif(...)`** (public, in `lib/app.dart`) never throws:
+  - An encoder failure returns `null`.
+  - A save failure still returns the bytes, so the GIF is still shown.
+  - **It saves into the session the photos came from**, via the new
+    `SessionService.saveGif(gif, session:)`. So if the guest taps Start Over (or the next guest
+    starts) before it finishes, the GIF still lands in the right folder.
+- **Where it's shown: the share screen since step 22g** (22d put it on the print screen, which
+  now only has the strip box, **480×640**, and the prints stepper).
+  - A spinner shows until the GIF is ready. Then `Image.memory` (key `guest-gif`) plays it;
+    Flutter animates GIFs natively.
+  - A `null` result hides the panel. No future (feature off) means no panel.
+  - **Printing never waits for the GIF.**
+- Tests:
+  - GIF panel group, now in `share_screen_test.dart` (step 22g): off, spinner → GIF, failure
+    hidden. **Don't use `pumpAndSettle` while the GIF spinner is showing**; it animates
+    forever.
+  - **`test/services/guest_gif_test.dart`** (4, real files): saved in the guest session, the
+    Start-Over race, encoder failure → null, no photos or no session → null.
+- **QR code via the Google Drive API: done in step 22g** (below).
+
+### Print hand-off to a separate print server (step 22e, user's decision)
+- **Why:** the user wants printing to stay in their separate code (python_parallel_print),
+  reused for all platforms. Claude had built Flutter-side printing in step 17 (following its own
+  `CLAUDE.md` plan) **without asking. Ask before replacing an existing user system.**
+- **Removed:**
+  - `SystemPrinterService`, `PrintBackend`, `rotateToPortrait`, `buildPdf`, `distribute`,
+    `sheetFormat`, `printers()`.
+  - The **`printing` and `pdf` packages**.
+  - The macOS `com.apple.security.print` entitlement.
+  - (Reverted the same day: a brief change making release builds print via the system queue.)
+- **`lib/services/printer_service.dart` now has:**
+  - `PrinterService.printSheet(png, prints:, jobName:)`, plus the helpers `copiesFor` and
+    `pngSize`.
+  - `MockPrinterService` (`jobs`).
+  - **`NetworkPrinterService(server:)`**. It uses `dart:io` `HttpClient`, with no new
+    dependency.
+- **HTTP contract** (also in README → "Printing: a separate print server"):
+  `POST {server}/print?copies=<sheets>&name=<job>`, with `Content-Type: image/png` and the sheet
+  **as composed (not rotated)**. A 2xx reply means OK; anything else becomes a
+  `PrinterException` carrying the server's text. Timeouts: connect 5 s, whole request 30 s.
+  "Not reachable" and "did not answer" messages are specific.
+- **Build-time choice** (`lib/app.dart`):
+  - `--dart-define=PRINTER=mock` is the **default**.
+  - `--dart-define=PRINTER=network --dart-define=PRINT_SERVER=http://host:8765` turns the
+    print server on (the default server is `http://localhost:8765`).
+  - `createPrinter()` and `printerChoice` live in `lib/app.dart`.
+- **Permissions:**
+  - macOS `com.apple.security.network.client` in both entitlements (the sandbox blocks
+    outgoing connections, even to localhost, without it).
+  - iOS `NSAppTransportSecurity/NSAllowsLocalNetworking` (plain HTTP to local addresses) and
+    `NSLocalNetworkUsageDescription`.
+- **Facts about the Python library** (`python_parallel_print/printer.py`):
+  - It splits `num_copies` across printers **within one job** (`copies // n`, extras to
+    printer 0, 1, …) but **always starts at printer 0**, so 1-sheet jobs all go to printer 0.
+    That's the server's behaviour now, not the app's.
+  - It draws the image **at raw pixel size, centred on the printable area, with no scaling**.
+    That's a likely cause of "printed slightly outside the boundaries" (if the printable area
+    is smaller than 1200×1800). Worth raising when the server is set up.
+- Tests: `printer_service_test.dart` (rules, mock, and network against a **real local
+  `HttpServer`**: path/query/content-type/bytes, server path prefix, 503 message, not
+  reachable, timeout, non-PNG). The pipeline test is unchanged (mock).
+- **The server side isn't written yet.** The user's separate code needs a small HTTP wrapper
+  around `Printer().print_images(path, copies)`. It doesn't belong in this repo.
+
+### Drive upload + share screen (step 22g, user's decisions)
+- **Why a backend:** the app must not ship Google credentials (release builds can be unpacked).
+  The user's separate repo **`py-drive-uploader`** (`/Users/chewyan/PROJECTS/py-drive-uploader`)
+  holds them and uploads for the app. Google auth, deployment and the token live there, not here.
+  - Signs in with **OAuth as the user's own account** (`token.json`). A service account can't
+    upload to a personal Drive (0 storage quota, verified). The scope is `drive.file`.
+  - Contract: `POST /folder?name=<session>` → `{folderId, folderUrl}`;
+    `POST /upload?name=<file>&folder=<session>` (raw bytes, `Content-Type`) →
+    `{id, name, url, folderId, folderUrl}`; errors `{"error": …}`; optional `X-Api-Key`.
+    Folders are find-or-create and shared "anyone with the link", so the same session name
+    always gives the same folder.
+- **`lib/services/drive_upload_service.dart`:** `DriveUploadService` (interface),
+  `NetworkDriveUploadService` (`HttpClient`, same style as `NetworkPrinterService`),
+  `DriveUploadException`, `DriveFolder`, `DriveFile`. **No mock in `lib/`** (user's decision):
+  off means `null`, and tests use fakes.
+- **Build settings (`lib/app.dart`), passed in `lib/main.dart`:**
+  - `DRIVE_SERVER` (off when empty) and `DRIVE_API_KEY` → `createDriveUploader()`.
+  - `GIF` (default `on`; `GIF=off` → `createGifService()` returns `null`, so no GIF is made,
+    saved, shown or uploaded).
+  - **`--dart-define`s are compiled in.** A missing `DRIVE_API_KEY` sends no header and the server
+    answers 401 ("no X-Api-Key header" in its log). After changing defines, fully restart; hot
+    reload doesn't pick them up.
+- **App shell:** `_toSelection` starts the GIF and `_driveFolder = _shareSession(session, gif)`.
+  That requests the session folder (named after the local `session_YYYYmmdd_HHMMSS` folder) and
+  uploads the GIF once it's ready, under its saved `animation_*.gif` name (`makeAndSaveGif`
+  returns a `GuestGif` record, `(bytes, file)`, with `file` null if saving failed).
+  `_printSheet` uploads each saved `final_composite_*.png`
+  after printing. Uploads never throw or block the guest; failures only `debugPrint`.
+- **Flow (user's decisions):** Print → **share screen** (`lib/screens/share_screen.dart`,
+  `_Screen.share`) instead of the "Sent to print" popup.
+  - Heading: "Sent to print!", or "Couldn't print — please ask for help" in red. **A failed print
+    still goes to the share screen.**
+  - The GIF (800×450) beside a "Scan for your photos" QR code (`qr_flutter`, 360×360, key
+    `drive-qr`). Each panel: no future = no panel, spinner while waiting, hidden on `null`.
+  - **Done**, or **60 s with no taps** (any tap restarts it) → `_toTitle`. `onDone` fires once.
+  - The GIF and QR were moved off the print screen. Print hands over via `onPrinted(bool)`, so
+    there's **one print per visit** to the print screen.
+  - **Nothing to share** (`_gif` and `_driveFolder` both `null`): `onPrinted` is `null`, and the
+    print screen keeps Python's popup and reprinting.
+- **Dependency added: `qr_flutter` (^4.1, pure Dart).**
+- Tests:
+  - `share_screen_test.dart` (14): heading both ways, Done once, idle timeout and restart, GIF and
+    QR panels, and GIF + QR fitting side by side.
+  - `print_screen_test.dart`: `onPrinted(true/false)`, plus the popup group for nothing to share.
+  - `QrImageView` keeps its data private, so tests check that the QR is shown, not its URL.
+- **Open:**
+  - **Android release builds need `android.permission.INTERNET`** in
+    `android/app/src/main/AndroidManifest.xml` (only debug adds it). This also affects the
+    print server.
 
 ### Pre-existing issue (resolved in step 19)
 - The template `test/widget_test.dart` (a broken counter test) was replaced by an app-shell
@@ -997,18 +1104,20 @@ Every step ends with this checklist:
 
 **Step 22 candidates.** These are open items collected in earlier steps; the user decides which
 to do:
-- **Printer choice:** switch `MockPrinterService` → `SystemPrinterService` (setting or build
-  flag). The iPad needs a one-time `Printing.pickPrinter` → `usePrinters`. There's also the
-  `useDriverSettings` margin knob.
+- ~~Printer choice~~ **done (22e):** a network hand-off to the user's separate print server
+  (`PRINTER=network`). The server wrapper is outside this repo and still to be written.
 - **Camera settings:** the equivalent of Python's `.env` (`CameraConfig` index and height).
-- ~~Kiosk mode~~ **done (22a)**. Optional extra: hide the cursor on touch kiosks.
+- ~~Kiosk mode~~ **done (22a)**; the **mouse pointer is hidden in kiosk mode (22e)**, natively
+  via `setCursorHidden` on the kiosk channel (macOS `NSCursor.hide/unhide`, balanced; Windows
+  the `ShowCursor` counter, restored in `OnDestroy`).
 - **iPad:** ~~landscape lock~~ done (22a). The iPad build is still untried, and iPadOS 18+
   devices need Xcode 16.
-- ~~App identity~~ **done (22b): "OCC Photobooth", `com.occ.photobooth`.**
+- ~~App identity~~ **decided** (see "App name").
 - **Camera recovery:** a way to restart the camera after "Camera problem" (now only Back).
 - **Session retention:** photos accumulate forever. Decide on cleanup or privacy.
-- **GIF in the guest flow:** `GifService` exists (22c). Decide when it's made (e.g. after the
-  camera, in the background), and whether guests see or share it.
+- ~~GIF in the guest flow~~ **done (22c/22d)**.
+- ~~QR code / Google Drive upload~~ **done (22g)**. Android `INTERNET` permission still open.
+- GIF style: **normal loop** (user's decision, 22e; boomerang stays off).
 - **Verify on real hardware:** the Mac camera (first `flutter run`), the Windows camera and
   SELPHY, and the iPad.
 

@@ -42,6 +42,10 @@ bool FlutterWindow::OnCreate() {
           const bool* full_screen = std::get_if<bool>(call.arguments());
           SetFullScreen(full_screen != nullptr && *full_screen);
           result->Success();
+        } else if (call.method_name() == "setCursorHidden") {
+          const bool* hidden = std::get_if<bool>(call.arguments());
+          SetCursorHidden(hidden != nullptr && *hidden);
+          result->Success();
         } else {
           result->NotImplemented();
         }
@@ -86,8 +90,25 @@ void FlutterWindow::SetFullScreen(bool full_screen) {
   is_full_screen_ = full_screen;
 }
 
+// Hides the mouse pointer over the app (touch kiosk). ShowCursor keeps a
+// display counter: the pointer is hidden while it's below 0.
+void FlutterWindow::SetCursorHidden(bool hidden) {
+  if (hidden == cursor_hidden_) {
+    return;
+  }
+  if (hidden) {
+    while (ShowCursor(FALSE) >= 0) {
+    }
+  } else {
+    while (ShowCursor(TRUE) < 0) {
+    }
+  }
+  cursor_hidden_ = hidden;
+}
+
 void FlutterWindow::OnDestroy() {
   kiosk_channel_ = nullptr;
+  SetCursorHidden(false);
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

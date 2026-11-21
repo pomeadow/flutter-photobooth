@@ -35,7 +35,9 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       kiosk_channel_;
   void SetFullScreen(bool full_screen);
+  void SetCursorHidden(bool hidden);
   bool is_full_screen_ = false;
+  bool cursor_hidden_ = false;
   LONG saved_style_ = 0;
   RECT saved_rect_ = {};
 };

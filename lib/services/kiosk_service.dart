@@ -6,8 +6,9 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 ///
 /// - macOS / Windows: asks the native window (see `macos/Runner/
 ///   MainFlutterWindow.swift`, `windows/runner/flutter_window.cpp`) to go
-///   full screen over the `photobooth/kiosk` channel. The operator can still
-///   quit with ⌘Q / Alt+F4.
+///   full screen and hide the mouse pointer (touch kiosk) over the
+///   `photobooth/kiosk` channel. The operator can still quit with ⌘Q /
+///   Alt+F4.
 /// - iPad: hides the status bar (immersive) and locks to landscape. For a
 ///   hard lock, use iPadOS Guided Access.
 /// - All: keeps the screen awake (`wakelock_plus`).
@@ -51,6 +52,10 @@ class KioskService {
         'full screen',
         () => channel.invokeMethod<void>('setFullScreen', true),
       );
+      await _guard(
+        'hide pointer',
+        () => channel.invokeMethod<void>('setCursorHidden', true),
+      );
     } else if (_mobile) {
       await _guard('immersive', () async {
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -68,6 +73,10 @@ class KioskService {
       await _guard(
         'leave full screen',
         () => channel.invokeMethod<void>('setFullScreen', false),
+      );
+      await _guard(
+        'show pointer',
+        () => channel.invokeMethod<void>('setCursorHidden', false),
       );
     } else if (_mobile) {
       await _guard('leave immersive', () async {

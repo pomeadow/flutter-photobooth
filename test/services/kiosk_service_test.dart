@@ -32,14 +32,16 @@ void main() {
   );
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
-    test('$platform: enter = awake + full screen; exit reverses', () async {
+    test('$platform: enter = awake + full screen + hidden pointer; exit '
+        'reverses', () async {
       final k = kiosk(platform);
       await k.enter();
-      expect(calls, ['setFullScreen(true)']);
+      expect(calls, ['setFullScreen(true)', 'setCursorHidden(true)']);
       expect(awake, [true]);
 
+      calls.clear();
       await k.exit();
-      expect(calls.last, 'setFullScreen(false)');
+      expect(calls, ['setFullScreen(false)', 'setCursorHidden(false)']);
       expect(awake.last, isFalse);
     });
   }

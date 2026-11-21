@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "OCC" "\0"
-            VALUE "FileDescription", "OCC Photobooth" "\0"
+            VALUE "CompanyName", "com.example" "\0"
+            VALUE "FileDescription", "Flutter Photobooth" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "occ_photobooth" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 OCC. All rights reserved." "\0"
-            VALUE "OriginalFilename", "occ_photobooth.exe" "\0"
-            VALUE "ProductName", "OCC Photobooth" "\0"
+            VALUE "InternalName", "flutter_photobooth" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "OriginalFilename", "flutter_photobooth.exe" "\0"
+            VALUE "ProductName", "Flutter Photobooth" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

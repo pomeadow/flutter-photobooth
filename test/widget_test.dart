@@ -37,4 +37,9 @@ void main() {
     // Let the camera warm-up timer run before the test ends.
     await tester.pump(const Duration(milliseconds: 50));
   });
+
+  test('debug/test builds use the mock printer (no SELPHY needed)', () {
+    expect(printerChoice, 'mock');
+    expect(createPrinter(), isA<MockPrinterService>());
+  });
 }

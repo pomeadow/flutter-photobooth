@@ -14,9 +14,13 @@ class MainFlutterWindow: NSWindow {
     super.awakeFromNib()
   }
 
-  /// Kiosk mode (lib/services/kiosk_service.dart): "setFullScreen" (Bool)
-  /// switches native macOS full screen on/off. The menu bar and Dock hide
-  /// automatically; the operator can still quit with Cmd+Q.
+  /// Whether kiosk mode has hidden the mouse pointer.
+  private var cursorHidden = false
+
+  /// Kiosk mode (lib/services/kiosk_service.dart):
+  /// - "setFullScreen" (Bool): native macOS full screen on/off. The menu bar
+  ///   and Dock hide automatically; the operator can still quit with Cmd+Q.
+  /// - "setCursorHidden" (Bool): hide/show the mouse pointer (touch kiosk).
   private func registerKioskChannel(_ controller: FlutterViewController) {
     collectionBehavior.insert(.fullScreenPrimary)
     let channel = FlutterMethodChannel(
@@ -31,6 +35,14 @@ class MainFlutterWindow: NSWindow {
         if wanted != isFull {
           // Defer so the window is on screen before toggling at launch.
           DispatchQueue.main.async { self.toggleFullScreen(nil) }
+        }
+        result(nil)
+      case "setCursorHidden":
+        let hide = (call.arguments as? Bool) ?? false
+        // NSCursor.hide/unhide calls must be balanced, so track the state.
+        if hide != self.cursorHidden {
+          if hide { NSCursor.hide() } else { NSCursor.unhide() }
+          self.cursorHidden = hide
         }
         result(nil)
       default:

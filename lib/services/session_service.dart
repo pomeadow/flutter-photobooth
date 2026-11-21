@@ -118,8 +118,15 @@ class SessionService {
 
   /// Writes an animated GIF (see GifService) as
   /// `animation_YYYYmmdd_HHMMSS.gif`; never overwrites.
-  Future<File> saveGif(Uint8List gif) =>
-      _writeUnique(_require(), 'animation_${_compact(_now())}.gif', gif);
+  ///
+  /// Pass the [session] the photos came from: the GIF is made in the
+  /// background, and the guest may have pressed Start Over (or the next guest
+  /// started) by the time it's done. Defaults to the current session.
+  Future<File> saveGif(Uint8List gif, {Session? session}) => _writeUnique(
+    session ?? _require(),
+    'animation_${_compact(_now())}.gif',
+    gif,
+  );
 
   /// Ends the session (back to title). Files stay on disk.
   void reset() => _current = null;

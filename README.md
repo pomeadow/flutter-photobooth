@@ -1,4 +1,4 @@
-# OCC Photobooth
+# Flutter Photobooth
 
 A Christmas-themed event photobooth for touchscreens.
 1. A guest presses START.
@@ -84,10 +84,12 @@ The app always uses the real camera. If none is found, the camera screen says so
 1. **Title**
 2. **Camera:** countdown, 4 photos, flash, sounds.
 3. **Selection:** pick 2 or 4 photos and a frame, with a live preview.
-4. **Print:** choose the number of prints, then Print. That saves a 300-DPI
-   `final_composite_*.png` and sends it to the **mock printer**, which only logs, until the
-   SELPHY is set up. Photos land in the session
-folder (see below).
+4. **Print:** the guest's strip, then Print Photo.
+5. **Share:** the guest's **animated GIF** plays, next to a QR code for their photos. The GIF is
+   made from the guest's photos in the background after the camera and saved as
+   `animation_*.gif`.
+
+Photos land in the session folder (see below).
 
 ### Event devices (run only)
 
@@ -110,23 +112,23 @@ None of these need Flutter, Xcode or Visual Studio. **Release builds start in ki
    ```bash
    flutter build macos --release
    ditto -c -k --sequesterRsrc --keepParent \
-     "build/macos/Build/Products/Release/OCC Photobooth.app" build/dist/OCC-Photobooth-macOS.zip
+     "build/macos/Build/Products/Release/flutter_photobooth.app" build/dist/Flutter-Photobooth-macOS.zip
    ```
    Use `ditto`, not Finder's "Compress"; it keeps the app's signature intact.
-2. **Copy** `OCC-Photobooth-macOS.zip` to the other Mac (USB stick, AirDrop…), unzip it, and
-   move **`OCC Photobooth.app`** to **Applications**.
+2. **Copy** `Flutter-Photobooth-macOS.zip` to the other Mac (USB stick, AirDrop…), unzip it, and
+   move **`flutter_photobooth.app`** to **Applications**.
 3. **The first launch is blocked by Gatekeeper.** The app is only ad-hoc signed (no Apple
    Developer ID), so macOS says it "can't be opened". To allow it, either:
    - double-click it once, then go to **System Settings → Privacy & Security → "Open Anyway"**;
      or
-   - in Terminal: `xattr -dr com.apple.quarantine "/Applications/OCC Photobooth.app"`.
+   - in Terminal: `xattr -dr com.apple.quarantine "/Applications/flutter_photobooth.app"`.
 
    You only do this once per Mac. To avoid it entirely you'd need a paid Apple Developer
    account (Developer ID signing + notarization).
 4. **On first run**, allow the **camera** prompt. To print for real, add the SELPHY under
    System Settings → Printers.
 5. Photos are saved in
-   `~/Library/Containers/com.occ.photobooth/Data/Documents/photobooth_sessions/`.
+   `~/Library/Containers/com.example.flutterPhotobooth/Data/Documents/photobooth_sessions/`.
 
 #### Windows kiosk
 
@@ -140,7 +142,7 @@ None of these need Flutter, Xcode or Visual Studio. **Release builds start in ki
 3. **Install the Microsoft Visual C++ Redistributable (x64)** on the kiosk, once. It's the free
    "vc_redist.x64.exe" from Microsoft. Without it the app won't start ("VCRUNTIME140.dll was not
    found").
-4. Run **`occ_photobooth.exe`**. Allow camera access (Settings → Privacy & security → Camera →
+4. Run **`flutter_photobooth.exe`**. Allow camera access (Settings → Privacy & security → Camera →
    "Let desktop apps access your camera").
 5. **Optional, to start automatically:** put a shortcut to the `.exe` in the Startup folder
    (Win+R → `shell:startup`).
@@ -164,31 +166,47 @@ None of these need Flutter, Xcode or Visual Studio. **Release builds start in ki
 - **iPad:** uses the **front** camera, facing the guests. The permission prompt appears the first
   time; if it was declined, re-enable it in Settings → Privacy & Security → Camera.
 
-**Printer notes (Canon SELPHY CP1500)**
-- The app uses **every connected printer whose name contains "Canon SELPHY CP1500"**. With
-  several, copies are shared out between them and printed in parallel. Keep the default Windows
-  printer names, or rename them so each still contains that text.
-- Each Print sends **one 4×6 in sheet per 2 strips**; the sheet is cut in half. Load **Postcard
-  (4×6 in / 100×148 mm)** paper and ink.
-- **Windows:** install the Canon driver, then print a test page from Windows first. In the
-  driver's preferences, choose Postcard size and **borderless**.
-- **Mac / iPad:** the SELPHY must be on the same Wi-Fi (AirPrint). On iPad, the operator picks the
-  printer once in the app.
-- If prints come out shifted or cropped, there's a setting to use the printer driver's own paper
-  setup instead of the app's exact 4×6 page (see `CLAUDE.md` → PrinterService).
-- Until the real printer is set up, the app uses a **mock printer** that only logs.
+**Printing: a separate print server (not part of this app)**
+
+The app doesn't talk to printers. Your separate printer code (`python_parallel_print`, which
+shares copies round-robin across all connected Canon SELPHY CP1500s and rotates sheets to
+portrait) runs as a small **print server**. The app sends it each finished sheet over the
+network. One print PC can serve every booth device, or it can run on the same machine.
+
+- **Contract** the print server must implement:
+  ```
+  POST http://<print-pc>:8765/print?copies=<sheets>&name=<job name>
+  Content-Type: image/png
+  <body: the 300-DPI sheet PNG, as composed — 1800×1200 or 1200×1800, not rotated>
+
+  → reply 2xx (optional text body)  = accepted
+  → anything else (text body)        = error, shown to the guest as "Couldn't print"
+  ```
+  `copies` is the number of **sheets**. The guest chooses strips, and each 4×6 sheet holds 2
+  (cut in half), so `copies = prints ÷ 2`. The sheet is also saved as
+  `final_composite_*.png` in the session folder before sending.
+- **Turning it on:** builds use a **mock printer** (logs only) unless built with:
+  ```bash
+  flutter build windows --release --dart-define=PRINTER=network --dart-define=PRINT_SERVER=http://192.168.1.50:8765
+  # same machine as the print server: PRINT_SERVER defaults to http://localhost:8765
+  ```
+- **Network permissions** are already set up: macOS has outgoing network, and iPad has
+  local-network HTTP. The first time on iPad, allow the "find devices on your local network"
+  prompt.
+- **On the print PC:** install the Canon driver and print a Windows test page first. In the
+  driver's preferences choose Postcard size (4×6 in / 100×148 mm) and **borderless**. Load
+  Postcard paper and ink.
 
 ---
 
 ## Where photos are saved
 
 Each guest gets a `session_YYYYmmdd_HHMMSS/` folder holding their photos, every printed sheet
-(`final_composite_*.png`, 300 DPI) and, once the GIF feature is switched on, an animated
-`animation_*.gif`.
+(`final_composite_*.png`, 300 DPI) and the animated `animation_*.gif` of the guest's photos.
 
 | Platform | Folder |
 |---|---|
-| macOS | `~/Library/Containers/com.occ.photobooth/Data/Documents/photobooth_sessions/` |
+| macOS | `~/Library/Containers/com.example.flutterPhotobooth/Data/Documents/photobooth_sessions/` |
 | Windows | `Documents\photobooth_sessions\` |
 | iPad | The app's Documents folder |
 

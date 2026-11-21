@@ -14,15 +14,18 @@ import '../widgets/themed_button.dart';
 /// - "Your Photo is Ready!", preview strip + "Number of prints" stepper
 ///   (starts 2, min 2, step 2, no max);
 /// - Back to Selection / Print Photo / Start Over;
-/// - "Sent to print" popup with OK.
+/// - "Sent to print" popup with OK — unless [onPrinted] is given: then the
+///   app shell moves on to the share screen (GIF + QR), even if printing
+///   failed.
 ///
 /// The screen only drives the UI: [buildSheet] makes the full print sheet
-/// and [printSheet] saves + prints it (the app shell does both). Every Print
-/// press prints again, as in Python.
+/// and [printSheet] saves + prints it (the app shell does both). With the
+/// popup, every Print press prints again, as in Python; with [onPrinted],
+/// there's one print per visit to this screen.
 ///
 /// Fixes: the print count starts at 2 for every guest (Python kept the last
 /// guest's count); Print is disabled while a job is being sent; errors show
-/// a message instead of crashing.
+/// a message (or go to [onPrinted]) instead of crashing.
 class PrintScreen extends StatefulWidget {
   const PrintScreen({
     super.key,
@@ -30,6 +33,7 @@ class PrintScreen extends StatefulWidget {
     required this.printSheet,
     required this.onBack,
     required this.onStartOver,
+    this.onPrinted,
   });
 
   /// Builds the full composite. The screen owns and disposes the image.
@@ -41,6 +45,10 @@ class PrintScreen extends StatefulWidget {
   /// Back to Selection.
   final VoidCallback onBack;
   final VoidCallback onStartOver;
+
+  /// After Print: `true` = sent to the printer, `false` = it failed. Null =
+  /// stay here and show the "Sent to print" popup (no GIF or QR to share).
+  final void Function(bool printed)? onPrinted;
 
   @override
   State<PrintScreen> createState() => _PrintScreenState();
@@ -82,17 +90,19 @@ class _PrintScreenState extends State<PrintScreen> {
     final sheet = _sheet;
     if (sheet == null || _printing) return;
     setState(() => _printing = true);
-    String message;
+    var printed = true;
     try {
       await widget.printSheet(sheet, _prints);
-      message = 'Sent to print';
     } catch (error) {
       debugPrint('PrintScreen: printing failed: $error');
-      message = "Couldn't print — please ask for help";
+      printed = false;
     }
     if (!mounted) return;
     setState(() => _printing = false);
-    await _showMessage(message);
+    if (widget.onPrinted case final onPrinted?) return onPrinted(printed);
+    await _showMessage(
+      printed ? 'Sent to print' : "Couldn't print — please ask for help",
+    );
   }
 
   Future<void> _showMessage(String message) => showDialog<void>(
@@ -159,8 +169,10 @@ class _PrintScreenState extends State<PrintScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(width: 800, height: 640, child: _strip()),
-          const SizedBox(width: 80),
+          // 480×640 fits both strip shapes (half of 1800×1200 = 900×1200
+          // → 480×640; half of 1200×1800 = 600×1800 → 213×640).
+          SizedBox(width: 480, height: 640, child: _strip()),
+          const SizedBox(width: 60),
           StepSelector(
             value: _prints,
             min: 2,
