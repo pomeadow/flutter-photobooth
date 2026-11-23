@@ -545,7 +545,7 @@ Every step ends with this checklist:
 
 ### Build environment (steps 13, 16 and 17)
 - The full per-machine setup is written up in **`README.md` → Setup**. Keep it current.
-- **No CocoaPods, anywhere.** It can't be installed on the dev Mac: an Intel Mac on macOS 14.4 is
+- **No CocoaPods, anywhere.** It can't be installed on the dev Mac: its macOS is
   a "Tier 3" setup for Homebrew, and the Command Line Tools are outdated. **Apple platforms build
   with Swift Package Manager** instead:
   - `flutter config --enable-swift-package-manager` is a per-user global setting, enabled on
@@ -573,11 +573,26 @@ Every step ends with this checklist:
 - **Xcode 15.3 is fine for Flutter 3.50**, which requires 15 and recommends 16. An earlier note
   claiming newer Flutter needs Xcode 16 / macOS 14.5 was **wrong**.
 - **Flutter is deprecating Intel Macs** (`flutter doctor` warning on 3.50). A future version will
-  need Apple Silicon to build macOS and iOS apps, so this Mac's lifetime as the Apple build
-  machine is limited.
-- **iPad caveat:** installing on a device running iPadOS 18+ needs Xcode 16 device support; Xcode
-  15.3 can't. That's an Xcode limit, independent of Flutter. It isn't tried yet, and there are no
-  iOS Simulator runtimes installed.
+  need Apple Silicon to build macOS and iOS apps, so an Intel build Mac has a limited
+  lifetime.
+- **iPad: verified on iPadOS 26 (step 22g),** built on this Mac with **Xcode 16.x**.
+  The user has several Xcodes; select with `sudo xcode-select --switch …`. No iOS Simulator
+  runtimes are installed.
+  - **`camera_avfoundation` 0.11 needs Xcode 16+.** With Xcode 15.3 it fails in
+    `DefaultCamera.swift` (`AVCaptureSession` has no `wasInterruptedNotification` /
+    `runtimeErrorNotification`; those Swift names are iOS 18 SDK).
+  - **Release/profile only.** Xcode 16 installs on iPadOS 26 but can't attach the debugger, so
+    debug builds stop with `ptrace(PT_TRACE_ME): Operation not permitted` / "Cannot create a
+    FlutterEngine instance in debug mode". Debug and hot reload on the iPad need Xcode 26, which
+    needs macOS 15.6+ (Apple Configurator needs 15.7). The user chose not to update the Mac yet.
+  - **Stale-build trap:** `flutter run --release` installed the old debug app from
+    `build/ios/iphoneos/` instead of `build/ios/Release-iphoneos/`. Fix: `rm -rf build/ios/iphoneos`
+    (or `flutter clean`) before a release run.
+  - Free Apple ID ("Personal Team") signing: installs expire after 7 days.
+  - The `com.example.flutterPhotobooth` bundle id registered fine with the Personal Team.
+  - `ios/Flutter/Generated.xcconfig` holds the dart-defines (including `DRIVE_API_KEY`, base64);
+    it's git-ignored by `ios/.gitignore`. Keep it that way.
+  - Full steps are in README → Event devices → iPad.
 - **Verified:** `flutter build macos --debug` succeeds on 3.50.1 with all plugins. The app has the
   `device.camera` entitlement and `NSCameraUsageDescription`. SPM links plugins statically.
 - Windows apps are still **built on a Windows PC** (Flutter **≥3.47** + Visual Studio "Desktop

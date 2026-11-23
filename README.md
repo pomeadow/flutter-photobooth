@@ -151,11 +151,45 @@ None of these need Flutter, Xcode or Visual Studio. **Release builds start in ki
 
 #### iPad
 
-1. On the Mac, connect the iPad by cable and run `flutter run --release`, or distribute through
-   TestFlight (paid Apple Developer account).
-   - A free Apple ID's install **expires after 7 days**.
-   - **iPadOS 18+ needs Xcode 16** to install; this Mac's Xcode 15.3 can't.
-2. Allow the camera prompt. The app is landscape-only and full screen.
+Verified on an **iPadOS 26** iPad, built with Xcode 16.x.
+
+1. **Use Xcode 16 or newer.** The camera plugin doesn't compile with Xcode 15
+   (`AVCaptureSession has no member 'wasInterruptedNotification'`). With several Xcodes installed,
+   check and switch:
+   ```bash
+   xcode-select -p && xcodebuild -version
+   sudo xcode-select --switch /Applications/<Xcode 16>.app/Contents/Developer
+   ```
+   If you build from Xcode's ▶ button, open the project in that same Xcode.
+2. **On the iPad, once:** connect by cable, unlock, tap **Trust**. Then **Settings → Privacy &
+   Security → Developer Mode** → on → restart → unlock → **Turn On**.
+3. **Signing, once:** open `ios/Runner.xcworkspace` → blue **Runner** project → **TARGETS:
+   Runner** → **Signing & Capabilities** (All) → **Automatically manage signing** → choose your
+   **Team** (a free Apple ID shows as "Personal Team").
+4. **Install a release build** (`flutter devices` shows the iPad's id; `-d iPad` also works):
+   ```bash
+   rm -rf build/ios/iphoneos          # see "Stale debug build" below
+   flutter run --release -d iPad --dart-define=DRIVE_SERVER=… --dart-define=DRIVE_API_KEY=…
+   ```
+   The first time, trust your developer profile on the iPad: **Settings → General → VPN & Device
+   Management**. Then the app also opens from the home screen.
+   - **Debug mode doesn't work on iPadOS 26 from Xcode 16**: the app installs, but stops with
+     `ptrace(PT_TRACE_ME): Operation not permitted` / "Cannot create a FlutterEngine instance in
+     debug mode", because Xcode 16 can't attach its debugger to iPadOS 26. Use `--release`
+     (or `--profile`). Debug and hot reload on the iPad need Xcode 26 (macOS 15.6+).
+   - **Stale debug build:** `flutter run --release` installed the leftover *debug* app from
+     `build/ios/iphoneos/` (same error as above) instead of the new one in
+     `build/ios/Release-iphoneos/`. Deleting `build/ios/iphoneos` fixes it (`flutter clean` also
+     works). Or install the release app directly:
+     `xcrun devicectl device install app --device <ipad-id> build/ios/Release-iphoneos/Runner.app`.
+   - A free Apple ID's install **expires after 7 days**: reinstall before each event. A paid
+     Apple Developer account gives 1-year installs and TestFlight.
+   - `DRIVE_SERVER` must be reachable from the iPad: the Render URL or the Mac's network IP, not
+     `localhost`.
+5. Allow the camera and local-network prompts. The app is landscape-only and full screen.
+6. **At events, use Guided Access** to lock the iPad into the app: Settings → Accessibility →
+   Guided Access → on (set a passcode); open the app and **triple-click the top (or Home)
+   button** → Start. Triple-click again and enter the passcode to leave.
 
 **Camera notes**
 - **Windows:** any webcam Windows sees works. Close other apps that use the camera (Teams,
